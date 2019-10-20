@@ -42,7 +42,7 @@ class FilmList extends Component {
                     src={'http://image.tmdb.org/t/p/w342/' + item.src}
                   ></img>
                 </Row>
-                <Row className="text-center">
+                <Row className="text-center" style={{ color: '#ffffff' }}>
                   <span className="col-md-12 py-2"> {item.title}</span>
                 </Row>
               </Link>
