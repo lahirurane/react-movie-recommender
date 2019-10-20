@@ -1,7 +1,6 @@
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 from ast import literal_eval
@@ -11,6 +10,9 @@ from nltk.stem.snowball import SnowballStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 from nltk.corpus import wordnet
 from surprise import Reader, Dataset, SVD
+from flask import Flask, make_response
+from json import dumps
+from flask_cors import CORS
 
 import warnings
 warnings.simplefilter('ignore')
@@ -49,10 +51,11 @@ def get_top():
 
     qualified = qualified.sort_values('wr', ascending=False).head(250)
 
-    print(qualified.head(15))
+    # print(qualified.head(15))
+    return qualified
 
 
-def get_for_genre():
+def get_for_genre(genre):
     s = md.apply(lambda x: pd.Series(x['genres']),
                  axis=1).stack().reset_index(level=1, drop=True)
     s.name = 'genre'
@@ -78,18 +81,18 @@ def get_for_genre():
 
         return qualified
 
-    print("Recommendations for Romance")
-    print(build_chart('Romance').head(15))
+    return build_chart(genre)
 
 
-def get_for_movie(title):
-    print("get get")
+def get_for_movie(id):
+    # print("get get")
     md = pd. read_csv('./Data_CSV/movies_metadata.csv')
     links_small = pd.read_csv('./Data_CSV/links_small.csv')
     links_small = links_small[links_small['tmdbId'].notnull()
                               ]['tmdbId'].astype('int')
     md = md.drop([19730, 29503, 35587])
-
+    title = md.loc[md.id == id, 'title'].values[0]
+    # print("title", title)
     md['id'] = md['id'].astype('int')
 
     smd = md[md['id'].isin(links_small)]
@@ -118,12 +121,51 @@ def get_for_movie(title):
         sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
         sim_scores = sim_scores[1:31]
         movie_indices = [i[0] for i in sim_scores]
-        return titles.iloc[movie_indices]
+        returnResult = smd.iloc[movie_indices]
+        return returnResult
 
-    print(get_recommendations(title).head(10))
+    return get_recommendations(title)
+
+# finaldf = pd.DataFrame(columns=['adult','belongs_to_collection','budget','genres','homepage','id','imdb_id','original_language','original_title','overview','popularity','poster_path','production_companies','production_countries','release_date','revenue','runtime','spoken_languages','status','tagline','title','video','vote_average','vote_count'])
 
 
-print('get_top')
-get_top()
-print('get_for_movie')
-get_for_movie('The Godfather')
+# print('get_top')
+# get_top()
+# print('get_for_movie')
+app = Flask(__name__)
+cors = CORS(app)
+
+
+@app.route('/api_get_top/<list>')
+def api_get_top(list=None, limit=None):
+    results = get_top()
+    print("results", dumps(results))
+    return make_response(dumps(results))
+
+
+@app.route('/api_get_for_movie/<movielist>')
+def api_get_for_movie(movielist=None, limit=None):
+    # results = movielist
+    finaldf = pd.DataFrame(columns=[
+                           'id', 'title', 'poster_path', 'genres', 'runtime', 'release_date', 'vote_average'])
+
+    ls = movielist.strip('[]').replace('"', '').replace(' ', '').split(',')
+    for movieID in ls:
+        recoms = get_for_movie(
+            movieID)[['id', 'title', 'poster_path', 'genres', 'runtime', 'release_date', 'vote_average']]
+        # print(recoms.head(5), type(recoms))
+        finaldf = finaldf.append(
+            recoms, ignore_index=True)
+
+    # print(finaldf.head(20))
+
+    return make_response(dumps(finaldf.set_index('id').T.to_dict('list')))
+
+
+# df.set_index('ID').T.to_dict('list')
+# print("results", dumps(results))
+# return make_response(dumps(results))
+
+
+if __name__ == '__main__':
+    app.run('localhost', 5000)

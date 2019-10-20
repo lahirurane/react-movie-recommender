@@ -17,6 +17,14 @@ export default class Landing extends Component {
     this.validateInput = this.validateInput.bind(this);
   }
 
+  componentDidMount() {
+    if (localStorage.movie_login && localStorage.movie_login !== '') {
+      this.props.history.push('/my-page');
+    }
+    //TODO
+    // this.getPopular();
+  }
+
   handleOnchange(event) {
     console.log('event', event.target.name, event.target.value);
     this.setState({ [event.target.name]: event.target.value, errors: {} });

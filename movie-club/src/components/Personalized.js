@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Row, Col } from 'reactstrap';
+import { Row, Col, Button } from 'reactstrap';
 import axios from 'axios';
 import FilmList from './FilmList';
 
@@ -12,14 +12,10 @@ export default class Personalized extends Component {
       isLoading: false
     };
     this.getFilms = this.getFilms.bind(this);
+    this.onLogout = this.onLogout.bind(this);
   }
 
   componentDidMount() {
-    console.log(
-      'localStorage.movie_login ',
-      localStorage.movie_login,
-      localStorage.movie_login && localStorage.movie_login !== ''
-    );
     if (!localStorage.recommendation_login) {
       this.props.history.push('/');
     }
@@ -29,9 +25,23 @@ export default class Personalized extends Component {
   getFilms() {
     this.setState({ isLoading: true });
     axios
-      .get(`/api/recommendation-engine/get-top-films`)
+      .get(`/api_get_for_movie/[862,8844]`)
       .then(res => {
-        this.setState({ filmlist: res.data.data, isLoading: false });
+        let list = [];
+        console.log(res.data);
+        Object.keys(res.data).forEach(function(key) {
+          // console.table('Key : ' + key + ', Value : ' + data[key])
+          list.push({
+            id: key,
+            title: res.data[key][0],
+            src: res.data[key][1],
+            genres: res.data[key][2],
+            runtime: res.data[key][3],
+            release_date: res.data[key][4],
+            vote_average: res.data[key][5]
+          });
+        });
+        this.setState({ filmlist: list, isLoading: false });
       })
       .catch(err => {
         this.setState({ isLoading: false });
@@ -39,7 +49,14 @@ export default class Personalized extends Component {
       });
   }
 
+  onLogout() {
+    alert('Loggin out from your account');
+    localStorage.removeItem('movie_login');
+    this.props.history.push('/');
+  }
+
   render() {
+    console.log('result', this.state.filmlist);
     let content = '';
 
     if (this.state.isLoading) {
@@ -63,13 +80,18 @@ export default class Personalized extends Component {
     }
     return (
       <div className="animated fadeIn">
-        <Row className="py-5">
-          <h2 className="center">Movie Recommendation</h2>
+        <Row>
+          <Button onClick={this.onLogout}>Logout</Button>
         </Row>
-        <Row className="pb-5">
-          <h5 className="center">Your Films</h5>
-        </Row>
-        {content}
+        <Col>
+          <Row className="py-5">
+            <h2 className="center">Movie Recommendation</h2>
+          </Row>
+          <Row className="pb-5">
+            <h5 className="center">Your Films</h5>
+          </Row>
+          {content}
+        </Col>
       </div>
     );
   }
