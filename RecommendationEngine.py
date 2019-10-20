@@ -37,7 +37,7 @@ def get_top():
         lambda x: str(x).split('-')[0] if x != np.nan else np.nan)
 
     qualified = md[(md['vote_count'] >= m) & (md['vote_count'].notnull()) & (md['vote_average'].notnull())][[
-        'title', 'year', 'vote_count', 'vote_average', 'popularity', 'genres']]
+        'title', 'year', 'vote_count', 'vote_average', 'popularity', 'genres', 'release_date', 'runtime', 'poster_path', 'id']]
     qualified['vote_count'] = qualified['vote_count'].astype('int')
     qualified['vote_average'] = qualified['vote_average'].astype('int')
     qualified.shape
@@ -116,13 +116,21 @@ def get_for_movie(id):
     indices = pd.Series(smd.index, index=smd['title'])
 
     def get_recommendations(title):
-        idx = indices[title]
-        sim_scores = list(enumerate(cosine_sim[idx]))
-        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-        sim_scores = sim_scores[1:31]
-        movie_indices = [i[0] for i in sim_scores]
-        returnResult = smd.iloc[movie_indices]
-        return returnResult
+        try:
+            idx = indices[title]
+            if(idx):
+                sim_scores = list(enumerate(cosine_sim[idx]))
+                sim_scores = sorted(
+                    sim_scores, key=lambda x: x[1], reverse=True)
+                sim_scores = sim_scores[1:31]
+                movie_indices = [i[0] for i in sim_scores]
+                returnResult = smd.iloc[movie_indices]
+                return returnResult
+            else:
+                return pd.DataFrame()
+        except Exception as e:
+            print repr(e)
+            return pd.DataFrame()
 
     return get_recommendations(title)
 
@@ -136,26 +144,28 @@ app = Flask(__name__)
 cors = CORS(app)
 
 
-@app.route('/api_get_top/<list>')
-def api_get_top(list=None, limit=None):
-    results = get_top()
-    print("results", dumps(results))
-    return make_response(dumps(results))
+@app.route('/api_get_top')
+def api_get_top():
+    results = get_top()[['id', 'title', 'poster_path',
+                         'genres', 'runtime', 'release_date', 'vote_average']]
+    return make_response(dumps(results.set_index('id').T.to_dict('list')))
 
 
 @app.route('/api_get_for_movie/<movielist>')
 def api_get_for_movie(movielist=None, limit=None):
     # results = movielist
     finaldf = pd.DataFrame(columns=[
-                           'id', 'title', 'poster_path', 'genres', 'runtime', 'release_date', 'vote_average'])
+        'id', 'title', 'poster_path', 'genres', 'runtime', 'release_date', 'vote_average'])
 
     ls = movielist.strip('[]').replace('"', '').replace(' ', '').split(',')
     for movieID in ls:
-        recoms = get_for_movie(
-            movieID)[['id', 'title', 'poster_path', 'genres', 'runtime', 'release_date', 'vote_average']]
+        recomsList = get_for_movie(
+            movieID)
         # print(recoms.head(5), type(recoms))
-        finaldf = finaldf.append(
-            recoms, ignore_index=True)
+        if(recomsList.empty == False):
+            recoms = recomsList[['id', 'title', 'poster_path',
+                                 'genres', 'runtime', 'release_date', 'vote_average']]
+            finaldf = finaldf.append(recoms, ignore_index=True)
 
     # print(finaldf.head(20))
 
